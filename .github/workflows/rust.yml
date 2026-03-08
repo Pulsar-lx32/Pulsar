@@ -1,4 +1,4 @@
-name: Rust Ultimate CI
+name: Rust CI
 
 on:
   push:
@@ -10,45 +10,20 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  run-tests:
+  run-validator:
+    name: "Hardware Validation (Fuzzer)"
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout project
       uses: actions/checkout@v4
 
-    - name: Pre-clean Verilator state
-      run: |
-        echo "PATH: $PATH"
-        which verilator || true
-        verilator --version || true
-        env | grep VERILATOR || true
-        ls -lh /usr/bin/verilator || true
-        ls -lh /usr/local/bin/verilator || true
-        ls -lh /usr/share/verilator || true
-        ls -lh /usr/local/share/verilator || true
-
-    - name: Force complete cleanup of Verilator (no matter how it was installed)
-      run: |
-        sudo apt-get remove --purge -y verilator || true
-        sudo rm -rf /usr/local/bin/verilator /usr/local/share/verilator
-        sudo rm -rf /usr/bin/verilator /usr/share/verilator
-        hash -r || true
-
-    - name: Install Verilator from apt
+    - name: Install System Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y verilator
+        sudo apt-get install -y verilator g++
 
-    - name: Verify Verilator install
-      run: |
-        verilator --version
-        which verilator
-        ls -lh /usr/bin/verilator
-        ls -lh /usr/share/verilator
-        ls -lh /usr/share/verilator/include
-
-    - name: Install Rust
+    - name: Install Rust Toolchain
       uses: dtolnay/rust-toolchain@stable
 
     - name: Cache Rust dependencies
@@ -56,10 +31,7 @@ jobs:
       with:
         workspaces: tools/lx32_validator
 
-    - name: Build RTL, Rust & Run
+    - name: Run Automated Setup & Fuzzer
       run: |
-        make -C ../.. librust
-        test -d ../../.sim/lx32_lib
-        cargo build --release
-        cargo run --release
-      working-directory: tools/lx32_validator
+        chmod +x tools/setup.sh
+        ./tools/setup.sh

@@ -1,4 +1,7 @@
 pub mod models;
+pub mod program_generator;
+pub mod shrinking;
+
 use std::ffi::c_void;
 
 #[link(name = "lx32_bridge", kind = "static")]

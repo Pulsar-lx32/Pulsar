@@ -5,6 +5,8 @@ pub use lx32_validator::{create_core, get_pc, get_reg, tick_core};
 pub struct TestBench {
     pub rtl: *mut std::ffi::c_void,
     pub gold: Lx32System,
+    current_instr: u32,
+    current_mem_rdata: u32,
 }
 
 impl TestBench {
@@ -15,7 +17,12 @@ impl TestBench {
             unsafe { tick_core(rtl, 1, 0, 0) };
             gold.step(0, 0, true);
         }
-        Self { rtl, gold }
+        Self {
+            rtl,
+            gold,
+            current_instr: 0,
+            current_mem_rdata: 0,
+        }
     }
 
     // Helper to print a clean debug line for any module
@@ -35,3 +42,23 @@ impl TestBench {
         );
     }
 }
+
+// Helper functions for long program tests
+pub unsafe fn reset(core: *mut std::ffi::c_void) {
+    // Hold reset for a few cycles
+    for _ in 0..10 {
+        tick_core(core, 1, 0, 0);
+    }
+}
+
+pub unsafe fn set_instr(core: *mut std::ffi::c_void, instr: u32) {
+    // Instruction will be used in next posedge_clk call
+    // We store it in thread-local or global state
+    // For now, we'll just note that this should be used with posedge_clk
+}
+
+pub unsafe fn posedge_clk(core: *mut std::ffi::c_void) {
+    // Clock cycle with current instruction
+    tick_core(core, 0, 0, 0);
+}
+

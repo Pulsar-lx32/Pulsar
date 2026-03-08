@@ -54,3 +54,6 @@ impl RegisterFile {
         if index == 0 { 0 } else { self.regs[index] }
     }
 }
+
+
+

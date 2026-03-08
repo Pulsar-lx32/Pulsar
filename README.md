@@ -20,18 +20,18 @@ The goal of this project is educational: to understand how a CPU works from the 
 - Incremental development and testing
 - Simulation-first approach
 
-##  Verification & Robustness
+## Verification and Robustness
 
-The LX32 architecture undergoes massive stress testing via a custom **Rust-based validator**.
+The LX32 architecture undergoes comprehensive stress testing via a custom Rust-based validator.
 
 | Module | Iterations | Status |
 | :--- | :--- | :--- |
-| **ALU Core** | 100,000,000 | ✅ PASSED |
-| **Branch Unit** | 100,000,000 | ✅ PASSED |
-| **Control Unit** | 100,000,000 | ✅ PASSED |
-| **Register File** | 100,000,000 | ✅ PASSED |
-| **Full System** | 100,000,000 | ✅ PASSED |
+| **ALU Core** | 100,000,000 | PASSED |
+| **Branch Unit** | 100,000,000 | PASSED |
+| **Control Unit** | 100,000,000 | PASSED |
+| **Register File** | 100,000,000 | PASSED |
+| **Full System** | 100,000,000 | PASSED |
 
-**Total random vectors processed:** ~900 Million in < 70s.
+**Total random vectors processed:** approximately 900 million in under 70 seconds.
 ## License
 MIT

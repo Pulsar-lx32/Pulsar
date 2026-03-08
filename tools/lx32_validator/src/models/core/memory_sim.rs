@@ -60,3 +60,6 @@ impl MemorySim {
         }
     }
 }
+
+
+

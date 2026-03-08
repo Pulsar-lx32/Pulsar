@@ -51,7 +51,7 @@ librust:
 		-o $(ROOT_DIR)/.sim/bridge.o
 
 help:
-	@echo "Usage: make sim TB=lx32_system_tb"
+	@echo "Usage: make sim TB=lx32_system"
 
 sim:
 	@if [ -z "$(TB)" ]; then echo "ERROR: Define TB=<name>"; exit 2; fi
@@ -71,3 +71,43 @@ sim:
 
 clean:
 	@rm -rf $(OUTDIR)
+
+# ======================
+# LX32 Validator Targets
+# ======================
+
+VALIDATOR_BIN := $(VALIDATOR_DIR)/target/release/lx32_validator
+SEED ?=
+NUM ?=10
+LEN ?=500
+
+.PHONY: validate validate-verbose validate-long validate-long-verbose validate-seed validate-long-custom validate-help
+
+validate:
+	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml
+
+validate-verbose:
+	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml -- --verbose
+
+validate-long:
+	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml -- --long-only
+
+validate-long-verbose:
+	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml -- --long-only --verbose
+
+validate-seed:
+	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml -- $(if $(SEED),--seed $(SEED))
+
+validate-long-custom:
+	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml -- --long-only --num-programs $(NUM) --program-length $(LEN) $(if $(SEED),--seed $(SEED)) $(if $(VERBOSE),--verbose)
+
+validate-help:
+	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml -- --help
+
+
+# make validate
+# make validate-verbose
+# make validate-long
+# make validate-long-verbose
+# make validate-seed SEED=42
+# make validate-long-custom NUM=100 LEN=1000 VERBOSE=1 SEED=42

@@ -120,3 +120,6 @@ impl Lx32System {
         (alu_res, rs2_data, ctrl.mem_write)
     }
 }
+
+
+

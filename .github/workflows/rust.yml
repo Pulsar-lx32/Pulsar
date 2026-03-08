@@ -31,7 +31,5 @@ jobs:
       with:
         workspaces: tools/lx32_validator
 
-    - name: Run Automated Setup & Fuzzer
-      run: |
-        chmod +x tools/setup.sh
-        ./tools/setup.sh
+    - name: Execute Automated Setup
+      run: make setup

@@ -83,6 +83,17 @@ LEN ?=500
 
 .PHONY: validate validate-verbose validate-long validate-long-verbose validate-seed validate-long-custom validate-help
 
+# --- Setup & Installation ---
+
+.PHONY: setup
+setup: ## Configure the environment and run initial validation
+	@chmod +x tools/setup.sh
+	@./tools/setup.sh
+
+.PHONY: help
+help: ## Show this help message
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
 validate:
 	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml
 

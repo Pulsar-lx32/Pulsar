@@ -15,7 +15,7 @@ RTL_CORE := rtl/core
 RTL_ARCH := rtl/arch
 TB_CORE  := tb/core
 
-.PHONY: help sim clean
+.PHONY: help sim clean setup librust validate validate-verbose validate-long validate-long-verbose validate-seed validate-long-custom validate-help
 
 # Verilator include path detection (Linux vs macOS)
 UNAME_S := $(shell uname -s)
@@ -50,10 +50,7 @@ librust:
 		-I$(VERILATOR_INC)/vltstd \
 		-o $(ROOT_DIR)/.sim/bridge.o
 
-help:
-	@echo "Usage: make sim TB=lx32_system"
-
-sim:
+sim: ## Run a specific testbench (usage: make sim TB=lx32_system)
 	@if [ -z "$(TB)" ]; then echo "ERROR: Define TB=<name>"; exit 2; fi
 	@mkdir -p "$(OUTDIR)/$(TB)"
 	@echo "Compiling System: $(TB)..."
@@ -69,7 +66,7 @@ sim:
 	@echo "Running simulation..."
 	./$(OUTDIR)/$(TB)/$(TB)_sim +trace
 
-clean:
+clean: ## Remove simulation artifacts
 	@rm -rf $(OUTDIR)
 
 # ======================
@@ -81,44 +78,32 @@ SEED ?=
 NUM ?=10
 LEN ?=500
 
-.PHONY: validate validate-verbose validate-long validate-long-verbose validate-seed validate-long-custom validate-help
-
 # --- Setup & Installation ---
 
-.PHONY: setup
 setup: ## Configure the environment and run initial validation
 	@chmod +x tools/setup.sh
 	@./tools/setup.sh
 
-.PHONY: help
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-validate:
+validate: ## Run standard fuzzer
 	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml
 
-validate-verbose:
+validate-verbose: ## Run fuzzer with detailed output
 	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml -- --verbose
 
-validate-long:
+validate-long: ## Run only long-form program tests
 	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml -- --long-only
 
-validate-long-verbose:
+validate-long-verbose: ## Run long tests with details
 	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml -- --long-only --verbose
 
-validate-seed:
+validate-seed: ## Run tests with a specific seed (usage: make validate-seed SEED=123)
 	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml -- $(if $(SEED),--seed $(SEED))
 
-validate-long-custom:
+validate-long-custom: ## Custom long test (usage: make validate-long-custom NUM=10 LEN=1000)
 	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml -- --long-only --num-programs $(NUM) --program-length $(LEN) $(if $(SEED),--seed $(SEED)) $(if $(VERBOSE),--verbose)
 
-validate-help:
+validate-help: ## Show validator CLI options
 	cargo run --release --manifest-path $(VALIDATOR_DIR)/Cargo.toml -- --help
-
-
-# make validate
-# make validate-verbose
-# make validate-long
-# make validate-long-verbose
-# make validate-seed SEED=42
-# make validate-long-custom NUM=100 LEN=1000 VERBOSE=1 SEED=42

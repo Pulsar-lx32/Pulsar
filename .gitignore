@@ -12,6 +12,8 @@ tools/**/*.tv
 !tools/**/Cargo.toml
 !tools/**/Cargo.lock
 
+#ide
+.idea
 # Default ignored files
 /shelf/
 /workspace.xml

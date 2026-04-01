@@ -25,15 +25,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-def LX32ret : SDNode<"LX32ISD::RET", SDTNone, [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
-
-def lx32_lh  : PatFrag<(ops node:$ptr), (i32 (sextloadi16 node:$ptr))>;
-def lx32_lhu : PatFrag<(ops node:$ptr), (i32 (zextloadi16 node:$ptr))>;
-def lx32_lb  : PatFrag<(ops node:$ptr), (i32 (sextloadi8 node:$ptr))>;
-def lx32_lbu : PatFrag<(ops node:$ptr), (i32 (zextloadi8 node:$ptr))>;
-def lx32_sh  : PatFrag<(ops node:$src, node:$base, node:$off), (truncstorei16 node:$src, (add node:$base, node:$off))>;
-def lx32_sb  : PatFrag<(ops node:$src, node:$base, node:$off), (truncstorei8 node:$src, (add node:$base, node:$off))>;
-
 //===----------------------------------------------------------------------===//
 // Section 0 — Custom SDNodes and Pattern Fragments
 //===----------------------------------------------------------------------===//

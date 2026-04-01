@@ -32,8 +32,11 @@ def LX32InstrInfo : InstrInfo {
   let guessInstructionProperties = 0;
 }
 
+defm : RemapAllTargetPseudoPointerOperands<GPR>;
+
 /// This is the primary target definition. It ties everything together.
 def LX32 : Target {
   /// InstructionSet points to our instruction set metadata.
   let InstructionSet = LX32InstrInfo;
+  let AllowRegisterRenaming = 1;
 }

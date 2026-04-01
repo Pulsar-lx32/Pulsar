@@ -22,7 +22,9 @@ class LXInstRS2 { bits<5> rs2; }
 class LXInstRS1_RS2 : LXInstRS1, LXInstRS2 {}
 
 /// funct3 field.
-class LXInstFunct3<bits<3> funct3> {}
+class LXInstFunct3<bits<3> funct3_val> {
+  bits<3> funct3 = funct3_val;
+}
 
 /// Immediate field, 12 bits. Value is sign-extended.
 class LXImm12  { bits<12> imm12; } // sign-extended

@@ -1,28 +1,31 @@
-/*
- * LX32Subtarget.h
- * ----------------
- *
- * This project is an LLVM backend skeleton. The intent of this header is to be
- * a *minimal, buildable* subtarget definition that can be incrementally filled
- * in as codegen pieces are implemented.
- *
- * Notes for contributors:
- *  - Keep this header lightweight: prefer forward declarations when possible.
- *  - Avoid pulling in heavy CodeGen headers unless strictly required.
- *  - The generated TableGen subtarget base class is included via
- *    `LX32GenSubtargetInfo.inc` (GET_SUBTARGETINFO_HEADER section).
- */
+//===-- LX32Subtarget.h - LX32 Subtarget Declaration ---------------------===//
+//
+// Part of the LX32 Project
+// SPDX-License-Identifier: MIT
+//
+//===----------------------------------------------------------------------===//
+//
+// This file defines the LX32 subtarget wrapper used by LLVM codegen.
+// It is organized into the following sections:
+//
+//   Section 0 — TableGen subtarget header import
+//   Section 1 — LX32Subtarget declaration and feature parser contract
+//   Section 2 — Required TargetSubtargetInfo hooks (stub mode)
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_TARGET_LX32_CORE_LX32SUBTARGET_H
 #define LLVM_LIB_TARGET_LX32_CORE_LX32SUBTARGET_H
 
 #include "llvm/ADT/StringRef.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/Target/TargetMachine.h"
 
-// This provides `LX32GenSubtargetInfo`, which we derive from.
+// Pull in the TableGen-generated LX32GenSubtargetInfo class declaration.
+// The macro guard selects only the "HEADER" section of the .inc file,
+// which declares the class without defining any bodies.
+//
+//===----------------------------------------------------------------------===//
+// Section 0 — TableGen subtarget header import
+//===----------------------------------------------------------------------===//
 #define GET_SUBTARGETINFO_HEADER
 #include "../TableGen/LX32GenSubtargetInfo.inc"
 
@@ -31,32 +34,34 @@ namespace llvm {
 class Triple;
 class LX32TargetMachine;
 
-// Forward declarations for stubs that will eventually live in separate files.
-class LX32FrameLowering;
-class LX32InstrInfo;
-class LX32RegisterInfo;
-class LX32TargetLowering;
-class SelectionDAGTargetInfo;
+//===----------------------------------------------------------------------===//
+// Section 1 — LX32Subtarget declaration
+//===----------------------------------------------------------------------===//
 
 class LX32Subtarget : public LX32GenSubtargetInfo {
 public:
-  LX32Subtarget(const Triple &TT, StringRef CPU, StringRef TuneCPU, StringRef FS,
-               const LX32TargetMachine &TM);
+  LX32Subtarget(const Triple &TT, StringRef CPU, StringRef TuneCPU,
+                StringRef FS, const LX32TargetMachine &TM);
 
-  /// TableGen hook: feature parsing entry point.
-  ///
-  /// The body is generated in `LX32GenSubtargetInfo.inc` and currently does
-  /// nothing besides emitting debug output when enabled.
+  // TableGen emits an out-of-line definition for LX32Subtarget::
+  // ParseSubtargetFeatures(...) when GET_SUBTARGETINFO_TARGET_DESC is
+  // enabled. C++ still requires a matching declaration in this class.
+  //
+  // We intentionally do not implement this ourselves; the generated body
+  // is the source of truth.
   void ParseSubtargetFeatures(StringRef CPU, StringRef TuneCPU, StringRef FS);
 
-  /*
-   * Required TargetSubtargetInfo hooks.
-   *
-   * In a real backend this would return a target-specific TargetRegisterInfo
-   * instance. This skeleton intentionally keeps register info as a stub, so we
-   * return nullptr.
-   */
+  //===--------------------------------------------------------------------===//
+  // Section 2 — Required TargetSubtargetInfo hooks (stub mode)
+  //===--------------------------------------------------------------------===//
+
+  // Required TargetSubtargetInfo hooks.
+  // Return nullptr until register/info/frame components are fully wired.
   const TargetRegisterInfo *getRegisterInfo() const override { return nullptr; }
+  const TargetInstrInfo *getInstrInfo() const override { return nullptr; }
+  const TargetFrameLowering *getFrameLowering() const override {
+    return nullptr;
+  }
 };
 
 } // namespace llvm

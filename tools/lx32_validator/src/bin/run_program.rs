@@ -106,8 +106,9 @@ fn main() {
                 println!("Cycle {}: Memory Write 0x{:08X} -> [0x{:08X}]", cycles, write_data, write_addr);
             }
 
-            // Simple MMIO for exiting the simulation loop
-            if write_addr == 0x8000_0000 {
+            // MMIO exit ports used by bare-metal tests.
+            // 0x8000_0000 is the legacy port and 0xFFFF_F004 matches crt0.S.
+            if write_addr == 0x8000_0000 || write_addr == 0xFFFF_F004 {
                 println!("Simulation exited via MMIO (code: {}) at cycle {}", write_data, cycles);
                 break;
             }

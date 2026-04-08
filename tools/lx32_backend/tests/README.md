@@ -45,8 +45,32 @@ This validates the freestanding C path (`clang -> llc -march=lx32`) for:
 - direct calls and returns,
 - no implicit libcalls.
 
-Current expected status: three PASS cases (`return42`, `call_chain`,
-`pointer_store`) and one tracked XFAIL (`branch_loop`).
+Current expected status: four PASS smoke cases (`return42`, `pointer_store`,
+`call_chain`, `branch_loop`).
+
+The compile helper defaults to `-O0` for backend bring-up stability. Override
+with `LX32_C_OLEVEL` when probing optimization-related gaps:
+
+```bash
+LX32_C_OLEVEL=1 make test-baremetal
+```
+
+Enable extra backend diagnostics (`llc -verify-machineinstrs`) via:
+
+```bash
+LX32_BACKEND_DEBUG=1 make test-baremetal
+```
+
+## Bare-Metal C deep coverage
+
+Run:
+
+```bash
+make test-baremetal-deep
+```
+
+This extends smoke coverage with comparison-heavy control flow, pointer walking,
+iterative Fibonacci, and recursive Fibonacci stress cases.
 
 ## What is still missing for executing C end-to-end
 

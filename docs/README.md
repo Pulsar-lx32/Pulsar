@@ -259,6 +259,7 @@ This README provides a comprehensive guide to the LX32 project documentation. It
 - **validator_make_usage.md**: Makefile guide for simulation and validation, target descriptions, CLI options, custom scenarios.
 - **coq_workflow.md**: Practical Coq build and validation workflow.
 - **isa_formal_equations.md**: Full ISA equation sheet and canonical closure theorem.
+- **lx32_optimized_c.md**: Practical guide for minimalist, backend-friendly bare-metal C.
 
 ---
 
@@ -272,6 +273,7 @@ This README provides a comprehensive guide to the LX32 project documentation. It
 ### How to Use
 - Start with [setup.md](tools/setup.md) for environment preparation.
 - Use [validator_make_usage.md](tools/validator_make_usage.md) for Makefile targets and CLI options.
+- Use [lx32_optimized_c.md](tools/lx32_optimized_c.md) for C coding patterns tuned to the current backend.
 - Explore [demo.md](tools/demo.md) for advanced features and reproducible validation.
 - Dive into [golden_model/core/](golden_model/core/) and [golden_model/arch/](golden_model/arch/) for module and package details.
 - Reference [golden_model/tests/](golden_model/tests/) for test design and validation principles.

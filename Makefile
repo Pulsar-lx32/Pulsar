@@ -220,7 +220,7 @@ LLVM_REPO    := https://github.com/llvm/llvm-project
 NPROC        := $(shell nproc 2>/dev/null || sysctl -n hw.logicalcpu)
 LLD_EXISTS   := $(shell which lld 2>/dev/null)
 
-.PHONY: check-llvm install-backend build-backend setup-backend test-baremetal compile-c
+.PHONY: check-llvm install-backend build-backend setup-backend test-baremetal test-baremetal-deep compile-c
 
 check-llvm: ## Check LLVM, clone if missing
 	@if [ -d "$(LLVM_DIR)" ]; then \
@@ -266,6 +266,10 @@ setup-backend: build-backend ## Full setup: clone, link, build
 test-baremetal: ## Run baremetal C smoke tests using the LX32 backend
 	@echo "→ Running baremetal tests..."
 	@cd $(BACKEND_SRC)/tests/baremetal && ./run_baremetal_smoke.sh
+
+test-baremetal-deep: ## Run extended baremetal C tests (loops/comparisons/fibonacci)
+	@echo "→ Running deep baremetal tests..."
+	@cd $(BACKEND_SRC)/tests/baremetal && ./run_baremetal_smoke.sh deep
 
 compile-c: ## Compile, assemble, and link a custom C file (usage: make compile-c PROG=my_prog.c)
 	@if [ -z "$(PROG)" ]; then echo "ERROR: compile-c requires PROG=<path_to_c_file>"; exit 2; fi

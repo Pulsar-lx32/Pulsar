@@ -4,6 +4,12 @@ set -euo pipefail
 ROOT="/Users/axel/lx32/tools/lx32_backend/tests"
 PROGRAM_DIR="$ROOT/baremetal/programs"
 COMPILE_SH="$ROOT/compile_baremetal_c.sh"
+MODE="${1:-smoke}"
+
+if [[ "$MODE" != "smoke" && "$MODE" != "deep" ]]; then
+  echo "usage: $0 [smoke|deep]" >&2
+  exit 2
+fi
 
 if [[ ! -x "$COMPILE_SH" ]]; then
   chmod +x "$COMPILE_SH"
@@ -31,13 +37,20 @@ check_one() {
     return 1
   fi
 
-  if [[ "$stem" == "03_call_chain" ]] && ! grep -Eiq "call|jalr|jal" "$asm_file"; then
+  if [[ "$stem" == "03_call_chain" || "$stem" == "08_fibonacci_recursive" ]] && ! grep -Eiq "call|jalr|jal" "$asm_file"; then
     echo "FAIL $stem: missing call-like instruction sequence in asm" >&2
     return 1
   fi
 
-  if [[ "$stem" == "04_branch_loop" ]] && ! grep -Eiq "beq|bne|blt|bge|jal" "$asm_file"; then
+  if [[ "$stem" == "04_branch_loop" || "$stem" == "05_compare_assign" ||
+        "$stem" == "06_pointer_walk" || "$stem" == "07_fibonacci_iter" ||
+        "$stem" == "08_fibonacci_recursive" ]] && ! grep -Eiq "beq|bne|blt|bge|jal" "$asm_file"; then
     echo "FAIL $stem: missing branch/loop-like instruction sequence in asm" >&2
+    return 1
+  fi
+
+  if [[ "$stem" == "02_pointer_store" || "$stem" == "06_pointer_walk" ]] && ! grep -Eiq "lw|sw" "$asm_file"; then
+    echo "FAIL $stem: missing pointer load/store sequence in asm" >&2
     return 1
   fi
 
@@ -66,11 +79,19 @@ check_expected_fail() {
 }
 
 check_one "$PROGRAM_DIR/01_return42.c"
-check_one "$PROGRAM_DIR/03_call_chain.c"
 check_one "$PROGRAM_DIR/02_pointer_store.c"
-check_expected_fail "$PROGRAM_DIR/04_branch_loop.c"
+check_one "$PROGRAM_DIR/03_call_chain.c"
+check_one "$PROGRAM_DIR/04_branch_loop.c"
 
-echo "bare-metal C smoke tests passed"
+if [[ "$MODE" == "deep" ]]; then
+  echo "==> deep mode: extended control-flow and algorithm coverage"
+  check_one "$PROGRAM_DIR/05_compare_assign.c"
+  check_one "$PROGRAM_DIR/06_pointer_walk.c"
+  check_one "$PROGRAM_DIR/07_fibonacci_iter.c"
+  check_one "$PROGRAM_DIR/08_fibonacci_recursive.c"
+fi
+
+echo "bare-metal C $MODE tests passed"
 
 
 

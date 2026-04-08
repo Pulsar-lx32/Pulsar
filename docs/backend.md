@@ -68,3 +68,24 @@ make test-baremetal
 ```
 
 This runs specific, edge-case C programs from the `tests/baremetal/programs` folder to ensure the LX32 parser and IR instructions operate flawlessly.
+
+For extended algorithm and control-flow coverage:
+
+```bash
+make test-baremetal-deep
+```
+
+For backend diagnostics:
+
+```bash
+LX32_BACKEND_DEBUG=1 make test-baremetal
+```
+
+To probe optimization-related backend gaps:
+
+```bash
+LX32_C_OLEVEL=1 make test-baremetal-deep
+```
+
+See [`docs/tools/lx32_optimized_c.md`](tools/lx32_optimized_c.md) for practical C patterns that stay minimalist while mapping well to the current LX32 backend.
+

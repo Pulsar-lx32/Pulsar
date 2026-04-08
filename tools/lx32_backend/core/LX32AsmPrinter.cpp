@@ -19,6 +19,7 @@
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
@@ -144,24 +145,48 @@ public:
       return;
     }
     case LX32::PseudoCALL: {
-      // Minimal direct-call expansion for asm output: jalr ra, rs1, 0.
+      // Support both call forms used by the backend:
+      //  1) register-held target  -> jalr ra, rs1, 0
+      //  2) direct symbol target  -> jal  ra, symbol
       Register Base = 0;
+      MCOperand TargetSym;
+      bool HasTargetSym = false;
       for (const MachineOperand &MO : MI->operands()) {
         if (MO.isReg() && MO.getReg() != 0 && !MO.isImplicit()) {
           Base = MO.getReg();
           break;
         }
+        if (!HasTargetSym &&
+            (MO.isGlobal() || MO.isSymbol() || MO.isMBB() ||
+             MO.isBlockAddress() || MO.isCPI() || MO.isJTI())) {
+          HasTargetSym = MCILower.lowerOperand(MO, TargetSym);
+        }
       }
-      if (!Base)
-        report_fatal_error("lx32: malformed PseudoCALL (missing base register)");
 
-      MCInst Call;
-      Call.setOpcode(LX32::JALR);
-      Call.addOperand(MCOperand::createReg(LX32::X1));
-      Call.addOperand(MCOperand::createReg(Base));
-      Call.addOperand(MCOperand::createImm(0));
-      EmitToStreamer(*OutStreamer, Call);
-      return;
+      if (Base) {
+        MCInst Call;
+        Call.setOpcode(LX32::JALR);
+        Call.addOperand(MCOperand::createReg(LX32::X1));
+        Call.addOperand(MCOperand::createReg(Base));
+        Call.addOperand(MCOperand::createImm(0));
+        EmitToStreamer(*OutStreamer, Call);
+        return;
+      }
+
+      if (HasTargetSym) {
+        MCInst Call;
+        Call.setOpcode(LX32::JAL);
+        Call.addOperand(MCOperand::createReg(LX32::X1));
+        Call.addOperand(TargetSym);
+        EmitToStreamer(*OutStreamer, Call);
+        return;
+      }
+
+      std::string Dump;
+      raw_string_ostream OS(Dump);
+      MI->print(OS);
+      report_fatal_error(Twine("lx32: malformed PseudoCALL (missing callable target operand): ") +
+                         OS.str());
     }
     case LX32::PseudoLA: {
       // Minimal symbol materialization for asm path.

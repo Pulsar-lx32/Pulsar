@@ -17,6 +17,11 @@ OUT_LL="${OUT_PREFIX}.ll"
 OUT_S="${OUT_PREFIX}.s"
 OUT_O="${OUT_PREFIX}.o"
 
+# Backend bring-up defaults to O0 to avoid introducing unsupported ops
+# (e.g. MUL/div libcalls) via frontend optimizations.
+LX32_C_OLEVEL="${LX32_C_OLEVEL:-0}"
+LX32_BACKEND_DEBUG="${LX32_BACKEND_DEBUG:-0}"
+
 pick_llvm_bin() {
   local name="$1"
   if [[ -x "/Users/axel/llvm-project/build/bin/$name" ]]; then
@@ -43,10 +48,41 @@ COMMON_CFLAGS=(
   -fno-builtin
   -nostdlib
   -fno-stack-protector
-  -O1
+  "-O${LX32_C_OLEVEL}"
   -S
   -emit-llvm
 )
+
+LLC_COMMON=(
+  -march=lx32
+  -mcpu=generic
+  -mtriple=lx32-unknown-elf
+)
+
+if [[ "$LX32_BACKEND_DEBUG" == "1" ]]; then
+  echo "debug: clang=$CLANG"
+  echo "debug: llc=$LLC"
+  echo "debug: C opt level -O${LX32_C_OLEVEL}"
+  echo "debug: outputs ll=$OUT_LL s=$OUT_S o=$OUT_O"
+  LLC_COMMON+=( -verify-machineinstrs )
+fi
+
+run_llc_or_die() {
+  local filetype="$1"
+  local out_file="$2"
+  local in_file="$3"
+
+  if ! "$LLC" "${LLC_COMMON[@]}" -filetype="$filetype" -o "$out_file" "$in_file"; then
+    echo "error: llc failed for -filetype=$filetype" >&2
+    echo "  input : $in_file" >&2
+    echo "  output: $out_file" >&2
+    echo "  repro : $LLC ${LLC_COMMON[*]} -filetype=$filetype -o $out_file $in_file" >&2
+    if [[ "$LX32_BACKEND_DEBUG" != "1" ]]; then
+      echo "hint : re-run with LX32_BACKEND_DEBUG=1 for extra backend checks" >&2
+    fi
+    exit 1
+  fi
+}
 
 # Prefer direct lx32 target; if clang frontend does not know lx32 yet,
 # fallback to generic 32-bit just to produce freestanding IR for llc.
@@ -64,10 +100,10 @@ else
     "$OUT_LL"
 fi
 
-"$LLC" -march=lx32 -mcpu=generic -mtriple=lx32-unknown-elf -filetype=asm -o "$OUT_S" "$OUT_LL"
+run_llc_or_die asm "$OUT_S" "$OUT_LL"
 
 # Object emission is optional at this stage; asm generation is the hard requirement.
-if "$LLC" -march=lx32 -mcpu=generic -mtriple=lx32-unknown-elf -filetype=obj -o "$OUT_O" "$OUT_LL"; then
+if "$LLC" "${LLC_COMMON[@]}" -filetype=obj -o "$OUT_O" "$OUT_LL"; then
   OBJ_STATUS="ok"
 else
   OBJ_STATUS="not available in this backend slice"

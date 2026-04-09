@@ -91,3 +91,8 @@ Most keyboards are built by stacking solutions on top of constraints.
 
 PULSAR removes the constraints first — and builds up from there.
 
+---
+
+## License 
+
+MIT

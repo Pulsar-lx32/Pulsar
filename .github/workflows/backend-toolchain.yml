@@ -4,8 +4,20 @@ on:
   workflow_dispatch:
   push:
     branches: ["refactor/portability", "exp/**"]
+    paths:
+      - "Dockerfile"
+      - "Dockerfile.runtime"
+      - ".dockerignore"
+      - ".github/workflows/backend-toolchain.yml"
+      - "tools/lx32_backend/**"
   pull_request:
     branches: ["refactor/portability"]
+    paths:
+      - "Dockerfile"
+      - "Dockerfile.runtime"
+      - ".dockerignore"
+      - ".github/workflows/backend-toolchain.yml"
+      - "tools/lx32_backend/**"
 
 permissions:
   contents: read
@@ -27,12 +39,15 @@ jobs:
 
       - name: Build runtime image with pinned toolchain
         run: |
+          LLVM_JOBS="$(nproc)"
+          echo "Using LLVM_JOBS=${LLVM_JOBS}"
           docker build \
             --file Dockerfile \
             --target runtime \
             --tag lx32-runtime-ci:${GITHUB_SHA} \
             --build-arg LLVM_REF=main \
             --build-arg BACKEND_COMMIT="${GITHUB_SHA}" \
+            --build-arg LLVM_JOBS="${LLVM_JOBS}" \
             .
 
       - name: Extract versioned toolchain payload
@@ -40,13 +55,12 @@ jobs:
           set -euo pipefail
           mkdir -p dist/bin dist/lib
           cid="$(docker create lx32-runtime-ci:${GITHUB_SHA})"
-          docker start "${cid}" >/dev/null
           docker cp "${cid}:/usr/local/bin/llc" dist/bin/
           docker cp "${cid}:/usr/local/bin/llvm-mc" dist/bin/
           docker cp "${cid}:/usr/local/bin/llvm-objcopy" dist/bin/
-          # ld.lld is a symlink in the image; copy a dereferenced binary payload.
-          docker exec "${cid}" /bin/sh -lc 'cp -L /usr/bin/ld.lld /tmp/ld.lld.real'
-          docker cp "${cid}:/tmp/ld.lld.real" dist/bin/ld.lld
+          # ld.lld is a symlink in Ubuntu; copy the resolved binary target.
+          ld_real="$(docker run --rm lx32-runtime-ci:${GITHUB_SHA} /bin/sh -lc 'readlink -f /usr/bin/ld.lld')"
+          docker cp "${cid}:${ld_real}" dist/bin/ld.lld
           docker cp "${cid}:/usr/local/lib/lx32-llvm" dist/lib/
           docker cp "${cid}:/usr/local/share/LX32_BACKEND_COMMIT" dist/
           docker rm -v "${cid}"
@@ -64,6 +78,7 @@ jobs:
   build-runtime-image:
     runs-on: ubuntu-24.04
     needs: build-toolchain
+    if: github.event_name == 'workflow_dispatch' || github.ref_name == 'refactor/portability'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

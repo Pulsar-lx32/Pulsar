@@ -3,9 +3,9 @@ name: LX32 Toolchain CI
 on:
   workflow_dispatch:
   push:
-    branches: ["main"]
+    branches: ["refactor/portability", "exp/**"]
   pull_request:
-    branches: ["main"]
+    branches: ["refactor/portability"]
 
 permissions:
   contents: read

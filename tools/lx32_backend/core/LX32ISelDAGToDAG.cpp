@@ -137,17 +137,29 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
       report_fatal_error("lx32: BR_CC missing condition code");
 
     SDValue Chain = Node->getOperand(0);
-    // LX32 BR_CC nodes arrive as: chain, cc, rhs, target, lhs.
-    // Keep names aligned with semantic role (lhs/rhs), not raw index.
-    SDValue RHS = Node->getOperand(2);
-    SDValue Target = Node->getOperand(3);
-    SDValue LHS = Node->getOperand(4);
+    // Canonical BR_CC order is: chain, cc, lhs, rhs, target.
+    SDValue LHS = Node->getOperand(2);
+    SDValue RHS = Node->getOperand(3);
+    SDValue Target = Node->getOperand(4);
+
+    auto normalizeBranchOperand = [&](SDValue Op) -> SDValue {
+      if (const auto *C = dyn_cast<ConstantSDNode>(Op)) {
+        if (C->isZero())
+          return CurDAG->getRegister(LX32::X0, MVT::i32);
+        // BR pseudos take register operands. Materialize integer constants
+        // through x0 so legal patterns can produce register-form code.
+        SDValue Zero = CurDAG->getRegister(LX32::X0, MVT::i32);
+        SDValue Imm = CurDAG->getConstant(C->getSExtValue(), DL, MVT::i32);
+        return CurDAG->getNode(ISD::ADD, DL, MVT::i32, Zero, Imm);
+      }
+      return Op;
+    };
 
     auto emitCondPseudo = [&](unsigned Opc, SDValue OpA, SDValue OpB) {
       SmallVector<SDValue, 4> BrOps;
       BrOps.push_back(Chain);
-      BrOps.push_back(OpA);
-      BrOps.push_back(OpB);
+      BrOps.push_back(normalizeBranchOperand(OpA));
+      BrOps.push_back(normalizeBranchOperand(OpB));
       BrOps.push_back(Target);
       SDNode *Br = CurDAG->getMachineNode(Opc, DL, MVT::Other, BrOps);
       ReplaceNode(Node, Br);
@@ -177,19 +189,9 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
       BrOpc = LX32::PseudoBGEU;
       break;
     case ISD::SETGT:
-      // Keep the historical ordering used by this backend for signed GT.
-      // This path is intentionally explicit because generic swap handling
-      // does not produce equivalent semantics with the current BR_CC layout.
-      {
-        SmallVector<SDValue, 4> BrOps;
-        BrOps.push_back(Chain);
-        BrOps.push_back(LHS);
-        BrOps.push_back(Target);
-        BrOps.push_back(RHS);
-        SDNode *Br = CurDAG->getMachineNode(LX32::PseudoBLT, DL, MVT::Other, BrOps);
-        ReplaceNode(Node, Br);
-      }
-      return;
+      BrOpc = LX32::PseudoBLT;
+      Swap = true;
+      break;
     case ISD::SETLE:
       BrOpc = LX32::PseudoBGE;
       Swap = true;

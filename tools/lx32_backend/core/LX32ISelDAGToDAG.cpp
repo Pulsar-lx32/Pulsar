@@ -13,7 +13,6 @@
 
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/ErrorHandling.h"
 
 #include <memory>
@@ -135,14 +134,13 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
     if (Node->getNumOperands() < 5)
       report_fatal_error("lx32: malformed BRCC node");
 
-    const auto *CCNode = dyn_cast<CondCodeSDNode>(Node->getOperand(1));
+    // Canonical BRCC order is: chain, lhs, rhs, cc, target.
+    SDValue LHS = Node->getOperand(1);
+    SDValue RHS = Node->getOperand(2);
+    const auto *CCNode = dyn_cast<CondCodeSDNode>(Node->getOperand(3));
+    SDValue Target = Node->getOperand(4);
     if (!CCNode)
       report_fatal_error("lx32: BRCC missing condition code");
-
-    // Canonical BRCC order is: chain, cc, lhs, rhs, target.
-    SDValue LHS = Node->getOperand(2);
-    SDValue RHS = Node->getOperand(3);
-    SDValue Target = Node->getOperand(4);
 
     auto normalizeBranchOperand = [&](SDValue Op) -> SDValue {
       if (const auto *C = dyn_cast<ConstantSDNode>(Op)) {
@@ -152,17 +150,6 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
             "lx32: BRCC non-zero constants must be materialized in lowering");
       }
       return Op;
-    };
-
-    auto emitCondPseudo = [&](unsigned Opc, SDValue OpA, SDValue OpB) {
-      SmallVector<SDValue, 5> BrOps;
-      BrOps.push_back(Node->getOperand(0)); // chain
-      BrOps.push_back(normalizeBranchOperand(OpA));
-      BrOps.push_back(normalizeBranchOperand(OpB));
-      BrOps.push_back(Target);
-      SDNode *Br = CurDAG->getMachineNode(Opc, DL, MVT::Other, BrOps);
-      ReplaceNode(Node, Br);
-      return;
     };
 
     unsigned BrOpc = 0;
@@ -189,9 +176,17 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
       report_fatal_error("lx32: unsupported BRCC condition code");
     }
 
-    emitCondPseudo(BrOpc, LHS, RHS);
+    SmallVector<SDValue, 5> BrOps;
+    BrOps.push_back(Node->getOperand(0)); // chain
+    BrOps.push_back(normalizeBranchOperand(LHS));
+    BrOps.push_back(normalizeBranchOperand(RHS));
+    BrOps.push_back(Target);
+    SDNode *Br = CurDAG->getMachineNode(BrOpc, DL, MVT::Other, BrOps);
+    ReplaceNode(Node, Br);
     return;
   }
+  case ISD::BR_CC:
+    report_fatal_error("lx32: unexpected generic BR_CC during instruction selection");
   case ISD::FrameIndex:
     SelectFrameIndex(Node);
     return;

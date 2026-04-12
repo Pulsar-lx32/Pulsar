@@ -162,8 +162,10 @@ SDValue LX32TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
   Op0 = normalizeBranchOperand(Op0);
   Op1 = normalizeBranchOperand(Op1);
 
-  return DAG.getNode(LX32ISD::BRCC, DL, MVT::Other, Op.getOperand(0),
-                     DAG.getCondCode(CC), Op0, Op1, Target);
+  // Keep the BRCC operand order aligned with common target patterns:
+  // chain, lhs, rhs, cond, target.
+  return DAG.getNode(LX32ISD::BRCC, DL, MVT::Other, Op.getOperand(0), Op0,
+                     Op1, DAG.getCondCode(CC), Target);
 }
 
 SDValue LX32TargetLowering::LowerFormalArguments(

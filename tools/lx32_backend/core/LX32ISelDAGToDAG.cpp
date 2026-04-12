@@ -108,10 +108,22 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
       report_fatal_error("lx32: CALL expects target global/external symbol");
 
     SmallVector<SDValue, 4> Ops;
-    Ops.push_back(Node->getOperand(0)); // chain
     Ops.push_back(Callee);              // direct call target symbol
-    if (Node->getNumOperands() > 2)
-      Ops.push_back(Node->getOperand(2)); // optional glue
+    // Registers for call convention
+    for (unsigned i = 2; i < Node->getNumOperands(); ++i) {
+      if (Node->getOperand(i).getValueType() == MVT::Glue) continue;
+      Ops.push_back(Node->getOperand(i));
+    }
+    // Register mask
+    const uint32_t *Mask = Subtarget->getRegisterInfo()->getCallPreservedMask(
+        DAG.getMachineFunction(), DAG.getMachineFunction().getFunction().getCallingConv());
+    Ops.push_back(CurDAG->getRegisterMask(Mask));
+
+    Ops.push_back(Node->getOperand(0)); // chain
+
+    if (Node->getOperand(Node->getNumOperands() - 1).getValueType() == MVT::Glue) {
+      Ops.push_back(Node->getOperand(Node->getNumOperands() - 1)); // optional glue
+    }
 
     SDNode *Call = CurDAG->getMachineNode(
         LX32::PseudoCALL, DL, CurDAG->getVTList(MVT::Other, MVT::Glue), Ops);

@@ -74,6 +74,7 @@ LX32TargetLowering::LX32TargetLowering(const TargetMachine &TM,
   // Lower branches with explicit condition codes to a target node so the
   // selector never has to re-interpret generic BR_CC/SETCC combinations.
   setOperationAction(ISD::BR_CC, MVT::i32, Custom);
+  setOperationAction(ISD::BRCOND, MVT::Other, Custom);
 
   setOperationAction(ISD::GlobalAddress, MVT::i32, Expand);
   setOperationAction(ISD::BlockAddress, MVT::i32, Expand);
@@ -166,6 +167,39 @@ SDValue LX32TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
   // chain, lhs, rhs, cond, target.
   return DAG.getNode(LX32ISD::BRCC, DL, MVT::Other, Op.getOperand(0), Op0,
                      Op1, DAG.getCondCode(CC), Target);
+}
+
+SDValue LX32TargetLowering::lowerBRCOND(SDValue Op, SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+
+  if (Op.getNumOperands() < 3)
+    report_fatal_error("lx32: malformed BRCOND node");
+
+  SDValue Chain = Op.getOperand(0);
+  SDValue Cond = Op.getOperand(1);
+  SDValue Target = Op.getOperand(2);
+
+  if (Cond.getOpcode() == ISD::SETCC) {
+    SDValue LHS = Cond.getOperand(0);
+    SDValue RHS = Cond.getOperand(1);
+    auto *CCNode = dyn_cast<CondCodeSDNode>(Cond.getOperand(2));
+    if (!CCNode)
+      report_fatal_error("lx32: BRCOND SETCC missing condition code");
+
+    SDValue BrCC = DAG.getNode(ISD::BR_CC, DL, MVT::Other, Chain,
+                               DAG.getCondCode(CCNode->get()), LHS, RHS,
+                               Target);
+    return lowerBR_CC(BrCC, DAG);
+  }
+
+  // Generic i1 branch condition: branch when cond != 0.
+  if (Cond.getValueType() != MVT::i32)
+    Cond = DAG.getNode(ISD::ZERO_EXTEND, DL, MVT::i32, Cond);
+
+  SDValue BrCC = DAG.getNode(ISD::BR_CC, DL, MVT::Other, Chain,
+                             DAG.getCondCode(ISD::SETNE), Cond,
+                             DAG.getConstant(0, DL, MVT::i32), Target);
+  return lowerBR_CC(BrCC, DAG);
 }
 
 SDValue LX32TargetLowering::LowerFormalArguments(
@@ -351,6 +385,8 @@ SDValue LX32TargetLowering::LowerOperation(SDValue Op,
   switch (Op.getOpcode()) {
   case ISD::BR_CC:
     return lowerBR_CC(Op, DAG);
+  case ISD::BRCOND:
+    return lowerBRCOND(Op, DAG);
   default:
     llvm_unreachable("lx32: unexpected custom-lowered operation");
   }

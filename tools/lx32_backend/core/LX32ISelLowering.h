@@ -259,6 +259,10 @@ private:
   // so instruction selection only needs direct branch mappings.
   SDValue lowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
 
+  // lowerBRCOND — lower ISD::BRCOND by canonicalizing the i1 condition into
+  // a BR_CC form handled by lowerBR_CC.
+  SDValue lowerBRCOND(SDValue Op, SelectionDAG &DAG) const;
+
   // lowerVASTART — lower ISD::VASTART for variadic function support.
   //
   // At the start of a variadic function, the register arguments that were not

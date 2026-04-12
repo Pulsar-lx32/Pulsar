@@ -90,8 +90,8 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
       report_fatal_error("lx32: CALL expects target global/external symbol");
 
     SmallVector<SDValue, 4> Ops;
+    Ops.push_back(Callee);              // explicit call target symbol
     Ops.push_back(Node->getOperand(0)); // chain
-    Ops.push_back(Callee);              // direct call target symbol
     if (Node->getNumOperands() > 2)
       Ops.push_back(Node->getOperand(2)); // optional glue
 

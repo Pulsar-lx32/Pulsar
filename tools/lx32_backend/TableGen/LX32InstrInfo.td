@@ -466,8 +466,8 @@ let isPseudo = 1, hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
     let isReturn    = 1;
     let isTerminator = 1;
     let isBarrier   = 1;
-    // Keep ABI return-value registers live at function exit.
-    let Uses        = [X1, X10, X11];
+    // Keep ra and primary integer return register live at function exit.
+    let Uses        = [X1, X10];
   }
 
   def PseudoBR : LX32Pseudo<(outs), (ins simm21:$target), "br\t$target", []> {

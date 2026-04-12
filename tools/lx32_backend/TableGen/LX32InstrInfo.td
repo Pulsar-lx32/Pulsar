@@ -470,7 +470,8 @@ let isPseudo = 1, hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
     let Uses        = [X1, X10];
   }
 
-  def PseudoBR : LX32Pseudo<(outs), (ins simm21:$target), "br\t$target", []> {
+  def PseudoBR : LX32Pseudo<(outs), (ins simm21:$target), "br\t$target",
+                             [(br bb:$target)]> {
     let isTerminator = 1;
     let isBranch     = 1;
     let isBarrier    = 1;

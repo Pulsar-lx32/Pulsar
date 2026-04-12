@@ -148,32 +148,8 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
       if (const auto *C = dyn_cast<ConstantSDNode>(Op)) {
         if (C->isZero())
           return CurDAG->getRegister(LX32::X0, MVT::i32);
-
-        // Branch instructions are reg-reg, so constants must be materialized.
-        int64_t SImm = C->getSExtValue();
-        if (isInt<12>(SImm)) {
-          SDNode *ImmReg = CurDAG->getMachineNode(
-              LX32::ADDI, DL, MVT::i32,
-              CurDAG->getRegister(LX32::X0, MVT::i32),
-              CurDAG->getTargetConstant(SImm, DL, MVT::i32));
-          return SDValue(ImmReg, 0);
-        }
-
-        uint64_t ZImm = C->getZExtValue();
-        uint64_t Hi20 = (ZImm + 0x800ULL) >> 12;
-        int64_t Lo12 = SignExtend64<12>(ZImm & 0xfffULL);
-
-        SDNode *Lui = CurDAG->getMachineNode(
-            LX32::LUI, DL, MVT::i32,
-            CurDAG->getTargetConstant(Hi20, DL, MVT::i32));
-
-        if (Lo12 == 0)
-          return SDValue(Lui, 0);
-
-        SDNode *Addi = CurDAG->getMachineNode(
-            LX32::ADDI, DL, MVT::i32, SDValue(Lui, 0),
-            CurDAG->getTargetConstant(Lo12, DL, MVT::i32));
-        return SDValue(Addi, 0);
+        report_fatal_error(
+            "lx32: BRCC non-zero constants must be materialized in lowering");
       }
       return Op;
     };

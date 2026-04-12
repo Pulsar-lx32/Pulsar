@@ -113,6 +113,20 @@ SDValue LX32TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
   SDValue RHS = Op.getOperand(3);
   SDValue Target = Op.getOperand(4);
 
+  auto normalizeBranchOperand = [&](SDValue V) -> SDValue {
+    if (const auto *C = dyn_cast<ConstantSDNode>(V)) {
+      if (C->isZero())
+        return DAG.getRegister(LX32::X0, MVT::i32);
+
+      // Branch pseudos are reg-reg. Materialize constants early in lowering
+      // so DAGToDAG selection does not have to synthesize ad-hoc machine nodes.
+      return DAG.getNode(ISD::ADD, DL, MVT::i32,
+                         DAG.getRegister(LX32::X0, MVT::i32),
+                         DAG.getConstant(C->getSExtValue(), DL, MVT::i32));
+    }
+    return V;
+  };
+
   ISD::CondCode CC = CCNode->get();
   bool Swap = false;
   switch (CC) {
@@ -145,6 +159,8 @@ SDValue LX32TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
 
   SDValue Op0 = Swap ? RHS : LHS;
   SDValue Op1 = Swap ? LHS : RHS;
+  Op0 = normalizeBranchOperand(Op0);
+  Op1 = normalizeBranchOperand(Op1);
 
   return DAG.getNode(LX32ISD::BRCC, DL, MVT::Other, Op.getOperand(0),
                      DAG.getCondCode(CC), Op0, Op1, Target);

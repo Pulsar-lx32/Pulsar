@@ -145,9 +145,9 @@
 			(subtractmaskfromsilk no)
 			(outputformat 1)
 			(mirror no)
-			(drillshape 0)
+			(drillshape 1)
 			(scaleselection 1)
-			(outputdirectory "gerbers/")
+			(outputdirectory "")
 		)
 	)
 	(footprint "Package_TO_SOT_THT:TO-92_Inline"

@@ -28,6 +28,8 @@ RUN set -eux; \
       if [ "$i" -eq 3 ]; then exit 1; fi; \
       sleep 2; \
     done
+ARG BACKEND_HASH=unknown
+RUN echo "backend-hash: ${BACKEND_HASH}"
 # Copy only backend sources needed for LLVM target build so test/docs changes
 # do not invalidate the expensive toolchain layer.
 COPY tools/lx32_backend/CMakeLists.txt /llvm-src/llvm/lib/Target/LX32/CMakeLists.txt

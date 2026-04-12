@@ -41,6 +41,12 @@ jobs:
         id: cores
         run: echo "jobs=$(nproc)" >> "$GITHUB_OUTPUT"
 
+      - name: Compute backend hash
+        id: backend_hash
+        run: |
+          set -euo pipefail
+          echo "value=$(find tools/lx32_backend -type f | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
       - name: Preflight Docker context
         run: |
           set -euo pipefail
@@ -56,10 +62,10 @@ jobs:
           target: runtime
           tags: lx32-runtime-ci:${{ github.sha }}
           load: true
-          no-cache: 'true'
           build-args: |
             LLVM_REF=${{ env.LLVM_REF_PIN }}
             BACKEND_COMMIT=${{ github.sha }}
+            BACKEND_HASH=${{ steps.backend_hash.outputs.value }}
             LLVM_JOBS=${{ steps.cores.outputs.jobs }}
           cache-from: type=gha,scope=lx32-runtime-base
           cache-to: type=gha,mode=max,scope=lx32-runtime-base

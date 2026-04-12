@@ -89,8 +89,11 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
     SDValue Target = Node->getOperand(1);
 
     // Create a PseudoBR pseudo-instruction that will be expanded later
+    SmallVector<SDValue, 2> BrOps;
+    BrOps.push_back(Chain);
+    BrOps.push_back(Target);
     SDNode *Jump = CurDAG->getMachineNode(
-        LX32::PseudoBR, DL, MVT::Other, Chain, Target);
+        LX32::PseudoBR, DL, MVT::Other, BrOps);
     ReplaceNode(Node, Jump);
     return;
   }
@@ -127,17 +130,16 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
     ReplaceNode(Node, Ret);
     return;
   }
-  case ISD::BR_CC: {
+  case LX32ISD::BRCC: {
     SDLoc DL(Node);
     if (Node->getNumOperands() < 5)
-      report_fatal_error("lx32: malformed BR_CC node");
+      report_fatal_error("lx32: malformed BRCC node");
 
     const auto *CCNode = dyn_cast<CondCodeSDNode>(Node->getOperand(1));
     if (!CCNode)
-      report_fatal_error("lx32: BR_CC missing condition code");
+      report_fatal_error("lx32: BRCC missing condition code");
 
-    SDValue Chain = Node->getOperand(0);
-    // Canonical BR_CC order is: chain, cc, lhs, rhs, target.
+    // Canonical BRCC order is: chain, cc, lhs, rhs, target.
     SDValue LHS = Node->getOperand(2);
     SDValue RHS = Node->getOperand(3);
     SDValue Target = Node->getOperand(4);
@@ -146,18 +148,39 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
       if (const auto *C = dyn_cast<ConstantSDNode>(Op)) {
         if (C->isZero())
           return CurDAG->getRegister(LX32::X0, MVT::i32);
-        // BR pseudos take register operands. Materialize integer constants
-        // through x0 so legal patterns can produce register-form code.
-        SDValue Zero = CurDAG->getRegister(LX32::X0, MVT::i32);
-        SDValue Imm = CurDAG->getConstant(C->getSExtValue(), DL, MVT::i32);
-        return CurDAG->getNode(ISD::ADD, DL, MVT::i32, Zero, Imm);
+
+        // Branch instructions are reg-reg, so constants must be materialized.
+        int64_t SImm = C->getSExtValue();
+        if (isInt<12>(SImm)) {
+          SDNode *ImmReg = CurDAG->getMachineNode(
+              LX32::ADDI, DL, MVT::i32,
+              CurDAG->getRegister(LX32::X0, MVT::i32),
+              CurDAG->getTargetConstant(SImm, DL, MVT::i32));
+          return SDValue(ImmReg, 0);
+        }
+
+        uint64_t ZImm = C->getZExtValue();
+        uint64_t Hi20 = (ZImm + 0x800ULL) >> 12;
+        int64_t Lo12 = SignExtend64<12>(ZImm & 0xfffULL);
+
+        SDNode *Lui = CurDAG->getMachineNode(
+            LX32::LUI, DL, MVT::i32,
+            CurDAG->getTargetConstant(Hi20, DL, MVT::i32));
+
+        if (Lo12 == 0)
+          return SDValue(Lui, 0);
+
+        SDNode *Addi = CurDAG->getMachineNode(
+            LX32::ADDI, DL, MVT::i32, SDValue(Lui, 0),
+            CurDAG->getTargetConstant(Lo12, DL, MVT::i32));
+        return SDValue(Addi, 0);
       }
       return Op;
     };
 
     auto emitCondPseudo = [&](unsigned Opc, SDValue OpA, SDValue OpB) {
-      SmallVector<SDValue, 4> BrOps;
-      BrOps.push_back(Chain);
+      SmallVector<SDValue, 5> BrOps;
+      BrOps.push_back(Node->getOperand(0)); // chain
       BrOps.push_back(normalizeBranchOperand(OpA));
       BrOps.push_back(normalizeBranchOperand(OpB));
       BrOps.push_back(Target);
@@ -167,8 +190,6 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
     };
 
     unsigned BrOpc = 0;
-    bool Swap = false;
-
     switch (CCNode->get()) {
     case ISD::SETEQ:
       BrOpc = LX32::PseudoBEQ;
@@ -188,29 +209,11 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
     case ISD::SETUGE:
       BrOpc = LX32::PseudoBGEU;
       break;
-    case ISD::SETGT:
-      BrOpc = LX32::PseudoBLT;
-      Swap = true;
-      break;
-    case ISD::SETLE:
-      BrOpc = LX32::PseudoBGE;
-      Swap = true;
-      break;
-    case ISD::SETUGT:
-      BrOpc = LX32::PseudoBLTU;
-      Swap = true;
-      break;
-    case ISD::SETULE:
-      BrOpc = LX32::PseudoBGEU;
-      Swap = true;
-      break;
     default:
-      report_fatal_error("lx32: unsupported BR_CC condition code");
+      report_fatal_error("lx32: unsupported BRCC condition code");
     }
 
-    SDValue Op0 = Swap ? RHS : LHS;
-    SDValue Op1 = Swap ? LHS : RHS;
-    emitCondPseudo(BrOpc, Op0, Op1);
+    emitCondPseudo(BrOpc, LHS, RHS);
     return;
   }
   case ISD::FrameIndex:

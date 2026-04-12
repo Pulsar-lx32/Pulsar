@@ -459,8 +459,7 @@ let isPseudo = 1, hasSideEffects = 0, mayLoad = 0, mayStore = 0 in {
     let isReturn    = 1;
     let isTerminator = 1;
     let isBarrier   = 1;
-    // Keep return-value registers live across RA so return-copy chains are not
-    // deleted as dead defs before pseudo expansion.
+    // Keep ABI return-value registers live at function exit.
     let Uses        = [X1, X10, X11];
   }
 

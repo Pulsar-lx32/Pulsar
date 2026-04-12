@@ -68,6 +68,13 @@ LX32TargetLowering::LX32TargetLowering(const TargetMachine &TM,
   // First functional slice: keep select lowering on generic expansion.
   setOperationAction(ISD::SELECT, MVT::i32, Expand);
 
+  // Keep setcc/branch boolean semantics explicit for DAG combines.
+  setBooleanContents(ZeroOrOneBooleanContent);
+
+  // Lower branches with explicit condition codes to a target node so the
+  // selector never has to re-interpret generic BR_CC/SETCC combinations.
+  setOperationAction(ISD::BR_CC, MVT::i32, Custom);
+
   setOperationAction(ISD::GlobalAddress, MVT::i32, Expand);
   setOperationAction(ISD::BlockAddress, MVT::i32, Expand);
   setOperationAction(ISD::ConstantPool, MVT::i32, Expand);
@@ -85,9 +92,62 @@ const char *LX32TargetLowering::getTargetNodeName(unsigned Opcode) const {
     return "LX32ISD::CALL";
   case LX32ISD::SELECT_CC:
     return "LX32ISD::SELECT_CC";
+  case LX32ISD::BRCC:
+    return "LX32ISD::BRCC";
   default:
     return nullptr;
   }
+}
+
+SDValue LX32TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+
+  if (Op.getNumOperands() < 5)
+    report_fatal_error("lx32: malformed BR_CC node");
+
+  const auto *CCNode = dyn_cast<CondCodeSDNode>(Op.getOperand(1));
+  if (!CCNode)
+    report_fatal_error("lx32: BR_CC missing condition code");
+
+  SDValue LHS = Op.getOperand(2);
+  SDValue RHS = Op.getOperand(3);
+  SDValue Target = Op.getOperand(4);
+
+  ISD::CondCode CC = CCNode->get();
+  bool Swap = false;
+  switch (CC) {
+  case ISD::SETEQ:
+  case ISD::SETNE:
+  case ISD::SETLT:
+  case ISD::SETGE:
+  case ISD::SETULT:
+  case ISD::SETUGE:
+    break;
+  case ISD::SETGT:
+    CC = ISD::SETLT;
+    Swap = true;
+    break;
+  case ISD::SETLE:
+    CC = ISD::SETGE;
+    Swap = true;
+    break;
+  case ISD::SETUGT:
+    CC = ISD::SETULT;
+    Swap = true;
+    break;
+  case ISD::SETULE:
+    CC = ISD::SETUGE;
+    Swap = true;
+    break;
+  default:
+    report_fatal_error("lx32: unsupported BR_CC condition code");
+  }
+
+  SDValue Op0 = Swap ? RHS : LHS;
+  SDValue Op1 = Swap ? LHS : RHS;
+
+  return DAG.getNode(LX32ISD::BRCC, DL, MVT::Other, Op.getOperand(0),
+                     DAG.getCondCode(CC), Op0, Op1, Target);
 }
 
 SDValue LX32TargetLowering::LowerFormalArguments(
@@ -271,6 +331,8 @@ SDValue LX32TargetLowering::LowerReturn(
 SDValue LX32TargetLowering::LowerOperation(SDValue Op,
                                            SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
+  case ISD::BR_CC:
+    return lowerBR_CC(Op, DAG);
   default:
     llvm_unreachable("lx32: unexpected custom-lowered operation");
   }

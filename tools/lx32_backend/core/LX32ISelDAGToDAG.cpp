@@ -13,6 +13,7 @@
 
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
+#include "llvm/IR/IntrinsicsLX32.h"
 #include "llvm/Support/ErrorHandling.h"
 
 #include <memory>
@@ -77,7 +78,159 @@ void LX32DAGToDAGISel::Select(SDNode *Node) {
     return;
   }
 
+  auto normalizeIntrinsicRegOperand = [&](SDValue Op, const SDLoc &DL) -> SDValue {
+    if (const auto *C = dyn_cast<ConstantSDNode>(Op)) {
+      int64_t V = C->getSExtValue();
+      if (V == 0)
+        return CurDAG->getRegister(LX32::X0, MVT::i32);
+
+      if (!isInt<12>(V))
+        report_fatal_error("lx32: intrinsic constant operand out of simm12 range");
+
+      SDValue X0 = CurDAG->getRegister(LX32::X0, MVT::i32);
+      SDValue Imm = CurDAG->getTargetConstant(V, DL, MVT::i32);
+      SDNode *Mat = CurDAG->getMachineNode(LX32::ADDI, DL, MVT::i32, X0, Imm);
+      return SDValue(Mat, 0);
+    }
+    return Op;
+  };
+
   switch (Node->getOpcode()) {
+  case LX32ISD::LX32_SENSOR: {
+    if (Node->getNumOperands() < 1)
+      report_fatal_error("lx32: malformed LX32_SENSOR node");
+    SDLoc DL(Node);
+    SDValue Arg0 = normalizeIntrinsicRegOperand(Node->getOperand(0), DL);
+    SDValue Zero = CurDAG->getTargetConstant(0, DL, MVT::i32);
+    SDNode *N = CurDAG->getMachineNode(LX32::LX_SENSOR, DL, Node->getValueType(0),
+                                       Arg0, Zero);
+    ReplaceNode(Node, N);
+    return;
+  }
+  case LX32ISD::LX32_MATRIX: {
+    if (Node->getNumOperands() < 1)
+      report_fatal_error("lx32: malformed LX32_MATRIX node");
+    SDLoc DL(Node);
+    SDValue Arg0 = normalizeIntrinsicRegOperand(Node->getOperand(0), DL);
+    SDValue Zero = CurDAG->getTargetConstant(0, DL, MVT::i32);
+    SDNode *N = CurDAG->getMachineNode(LX32::LX_MATRIX, DL, Node->getValueType(0),
+                                       Arg0, Zero);
+    ReplaceNode(Node, N);
+    return;
+  }
+  case LX32ISD::LX32_DELTA: {
+    if (Node->getNumOperands() < 1)
+      report_fatal_error("lx32: malformed LX32_DELTA node");
+    SDLoc DL(Node);
+    SDValue Arg0 = normalizeIntrinsicRegOperand(Node->getOperand(0), DL);
+    SDValue Zero = CurDAG->getTargetConstant(0, DL, MVT::i32);
+    SDNode *N = CurDAG->getMachineNode(LX32::LX_DELTA, DL, Node->getValueType(0),
+                                       Arg0, Zero);
+    ReplaceNode(Node, N);
+    return;
+  }
+  case LX32ISD::LX32_CHORD: {
+    if (Node->getNumOperands() < 1)
+      report_fatal_error("lx32: malformed LX32_CHORD node");
+    SDLoc DL(Node);
+    SDValue Arg0 = normalizeIntrinsicRegOperand(Node->getOperand(0), DL);
+    SDNode *N = CurDAG->getMachineNode(LX32::LX_CHORD, DL, Node->getValueType(0),
+                                       Arg0);
+    ReplaceNode(Node, N);
+    return;
+  }
+  case LX32ISD::LX32_WAIT: {
+    if (Node->getNumOperands() < 2)
+      report_fatal_error("lx32: malformed LX32_WAIT node");
+    SDLoc DL(Node);
+    SDValue Chain = Node->getOperand(0);
+    SDValue Arg0 = normalizeIntrinsicRegOperand(Node->getOperand(1), DL);
+    SDValue Zero = CurDAG->getTargetConstant(0, DL, MVT::i32);
+    SDNode *N = CurDAG->getMachineNode(LX32::LX_WAIT, DL, MVT::Other,
+                                       Arg0, Zero, Chain);
+    ReplaceNode(Node, N);
+    return;
+  }
+  case LX32ISD::LX32_REPORT: {
+    if (Node->getNumOperands() < 2)
+      report_fatal_error("lx32: malformed LX32_REPORT node");
+    SDLoc DL(Node);
+    SDValue Chain = Node->getOperand(0);
+    SDValue Arg0 = normalizeIntrinsicRegOperand(Node->getOperand(1), DL);
+    SDValue Zero = CurDAG->getTargetConstant(0, DL, MVT::i32);
+    SDNode *N = CurDAG->getMachineNode(LX32::LX_REPORT, DL, MVT::Other,
+                                       Arg0, Zero, Chain);
+    ReplaceNode(Node, N);
+    return;
+  }
+  case ISD::INTRINSIC_WO_CHAIN: {
+    if (Node->getNumOperands() < 2)
+      report_fatal_error("lx32: malformed INTRINSIC_WO_CHAIN node");
+
+    SDLoc DL(Node);
+    unsigned IntNo = cast<ConstantSDNode>(Node->getOperand(0))->getZExtValue();
+    SDValue Arg0 = normalizeIntrinsicRegOperand(Node->getOperand(1), DL);
+    SDValue Zero = CurDAG->getTargetConstant(0, DL, MVT::i32);
+
+    switch (IntNo) {
+    case Intrinsic::lx32_sensor: {
+      SDNode *N = CurDAG->getMachineNode(LX32::LX_SENSOR, DL, Node->getValueType(0),
+                                         Arg0, Zero);
+      ReplaceNode(Node, N);
+      return;
+    }
+    case Intrinsic::lx32_matrix: {
+      SDNode *N = CurDAG->getMachineNode(LX32::LX_MATRIX, DL, Node->getValueType(0),
+                                         Arg0, Zero);
+      ReplaceNode(Node, N);
+      return;
+    }
+    case Intrinsic::lx32_delta: {
+      SDNode *N = CurDAG->getMachineNode(LX32::LX_DELTA, DL, Node->getValueType(0),
+                                         Arg0, Zero);
+      ReplaceNode(Node, N);
+      return;
+    }
+    case Intrinsic::lx32_chord: {
+      SDNode *N = CurDAG->getMachineNode(LX32::LX_CHORD, DL, Node->getValueType(0),
+                                         Arg0);
+      ReplaceNode(Node, N);
+      return;
+    }
+    default:
+      break;
+    }
+    break;
+  }
+  case ISD::INTRINSIC_VOID:
+  case ISD::INTRINSIC_W_CHAIN: {
+    if (Node->getNumOperands() < 3)
+      report_fatal_error("lx32: malformed intrinsic-with-chain node");
+
+    SDLoc DL(Node);
+    SDValue Chain = Node->getOperand(0);
+    unsigned IntNo = cast<ConstantSDNode>(Node->getOperand(1))->getZExtValue();
+    SDValue Arg0 = normalizeIntrinsicRegOperand(Node->getOperand(2), DL);
+    SDValue Zero = CurDAG->getTargetConstant(0, DL, MVT::i32);
+
+    switch (IntNo) {
+    case Intrinsic::lx32_wait: {
+      SDNode *N = CurDAG->getMachineNode(LX32::LX_WAIT, DL, MVT::Other,
+                                         Arg0, Zero, Chain);
+      ReplaceNode(Node, N);
+      return;
+    }
+    case Intrinsic::lx32_report: {
+      SDNode *N = CurDAG->getMachineNode(LX32::LX_REPORT, DL, MVT::Other,
+                                         Arg0, Zero, Chain);
+      ReplaceNode(Node, N);
+      return;
+    }
+    default:
+      break;
+    }
+    break;
+  }
   case LX32ISD::CALL: {
     SDLoc DL(Node);
 

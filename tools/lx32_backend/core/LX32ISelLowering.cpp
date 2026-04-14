@@ -13,6 +13,7 @@
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/IR/IntrinsicsLX32.h"
 #include "llvm/Support/ErrorHandling.h"
 
 #define DEBUG_TYPE "lx32-lower"
@@ -76,6 +77,10 @@ LX32TargetLowering::LX32TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::BR_CC, MVT::i32, Custom);
   setOperationAction(ISD::BRCOND, MVT::Other, Custom);
 
+  setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::i32, Custom);
+  setOperationAction(ISD::INTRINSIC_W_CHAIN,  MVT::i32, Custom);
+  setOperationAction(ISD::INTRINSIC_VOID,     MVT::Other, Custom);
+
   setOperationAction(ISD::GlobalAddress, MVT::i32, Expand);
   setOperationAction(ISD::BlockAddress, MVT::i32, Expand);
   setOperationAction(ISD::ConstantPool, MVT::i32, Expand);
@@ -95,6 +100,18 @@ const char *LX32TargetLowering::getTargetNodeName(unsigned Opcode) const {
     return "LX32ISD::SELECT_CC";
   case LX32ISD::BRCC:
     return "LX32ISD::BRCC";
+  case LX32ISD::LX32_SENSOR:
+    return "LX32ISD::LX32_SENSOR";
+  case LX32ISD::LX32_MATRIX:
+    return "LX32ISD::LX32_MATRIX";
+  case LX32ISD::LX32_DELTA:
+    return "LX32ISD::LX32_DELTA";
+  case LX32ISD::LX32_CHORD:
+    return "LX32ISD::LX32_CHORD";
+  case LX32ISD::LX32_WAIT:
+    return "LX32ISD::LX32_WAIT";
+  case LX32ISD::LX32_REPORT:
+    return "LX32ISD::LX32_REPORT";
   default:
     return nullptr;
   }
@@ -387,9 +404,58 @@ SDValue LX32TargetLowering::LowerOperation(SDValue Op,
     return lowerBR_CC(Op, DAG);
   case ISD::BRCOND:
     return lowerBRCOND(Op, DAG);
+  case ISD::INTRINSIC_WO_CHAIN:
+  case ISD::INTRINSIC_W_CHAIN:
+  case ISD::INTRINSIC_VOID:
+    return lowerINTRINSIC(Op, DAG);
   default:
     llvm_unreachable("lx32: unexpected custom-lowered operation");
   }
 }
 
+SDValue LX32TargetLowering::lowerVASTART(SDValue Op, SelectionDAG &DAG) const {
+  llvm_unreachable("lx32: VASTART not implemented");
+}
 
+SDValue LX32TargetLowering::lowerINTRINSIC(SDValue Op, SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  unsigned IntNo;
+  bool HasChain = Op.getOpcode() != ISD::INTRINSIC_WO_CHAIN;
+  unsigned ArgBase = HasChain ? 2 : 1;
+
+  if (HasChain) {
+    IntNo = cast<ConstantSDNode>(Op.getOperand(1))->getZExtValue();
+  } else {
+    IntNo = cast<ConstantSDNode>(Op.getOperand(0))->getZExtValue();
+  }
+
+  // Find the right intrinsic by comparing against the ID.
+  // The exact Intrinsic::lx32_* IDs will be generated if we declare them in TD,
+  // but looking at the user request we need to check the intrinsic ID here.
+  switch (IntNo) {
+  case Intrinsic::lx32_sensor:
+    return DAG.getNode(LX32ISD::LX32_SENSOR, DL, Op->getVTList(),
+                       Op.getOperand(ArgBase));
+  case Intrinsic::lx32_matrix:
+    return DAG.getNode(LX32ISD::LX32_MATRIX, DL, Op->getVTList(),
+                       Op.getOperand(ArgBase));
+  case Intrinsic::lx32_delta:
+    return DAG.getNode(LX32ISD::LX32_DELTA, DL, Op->getVTList(),
+                       Op.getOperand(ArgBase));
+  case Intrinsic::lx32_chord:
+    return DAG.getNode(LX32ISD::LX32_CHORD, DL, Op->getVTList(),
+                       Op.getOperand(ArgBase));
+  case Intrinsic::lx32_wait:
+    if (!HasChain)
+      report_fatal_error("lx32: wait intrinsic must carry a chain");
+    return DAG.getNode(LX32ISD::LX32_WAIT, DL, MVT::Other,
+                       Op.getOperand(0), Op.getOperand(ArgBase));
+  case Intrinsic::lx32_report:
+    if (!HasChain)
+      report_fatal_error("lx32: report intrinsic must carry a chain");
+    return DAG.getNode(LX32ISD::LX32_REPORT, DL, MVT::Other,
+                       Op.getOperand(0), Op.getOperand(ArgBase));
+  default:
+    report_fatal_error("lx32: unknown intrinsic");
+  }
+}

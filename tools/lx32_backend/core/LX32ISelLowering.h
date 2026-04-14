@@ -114,6 +114,14 @@ enum NodeType : unsigned {
   // Produced by lowerBR_CC from ISD::BR_CC to keep branch condition handling
   // target-specific and selected directly to PseudoB* opcodes.
   BRCC,
+
+  // Custom opcodes for PULSAR custom instructions
+  LX32_SENSOR,
+  LX32_MATRIX,
+  LX32_DELTA,
+  LX32_CHORD,
+  LX32_WAIT,
+  LX32_REPORT,
 };
 } // namespace LX32ISD
 
@@ -270,6 +278,8 @@ private:
   // frame.  lowerVASTART emits a store of the address of that area into the
   // va_list structure, so that va_arg can walk it.
   SDValue lowerVASTART(SDValue Op, SelectionDAG &DAG) const;
+
+  SDValue lowerINTRINSIC(SDValue Op, SelectionDAG &DAG) const;
 };
 
 } // namespace llvm

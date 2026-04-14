@@ -21,6 +21,8 @@ pub struct Lx32System {
     pub pc: u32,
     pub reg_file: RegisterFile,
     pub memory: Vec<u8>,
+    wait_counter: u32,
+    wait_consumed: bool,
 }
 
 impl Lx32System {
@@ -30,6 +32,8 @@ impl Lx32System {
             pc: 0,
             reg_file: RegisterFile::new(),
             memory: vec![0; 4096],
+            wait_counter: 0,
+            wait_consumed: false,
         }
     }
 
@@ -61,7 +65,16 @@ impl Lx32System {
         // --- 1. Reset Logic ---
         if rst {
             self.pc = 0;
+            self.wait_counter = 0;
+            self.wait_consumed = false;
             self.reg_file.tick(true, 0, 0, false);
+            return (0, 0, false);
+        }
+
+        // WAIT already active: hold pipeline and PC while countdown runs.
+        if self.wait_counter > 0 {
+            self.wait_counter = self.wait_counter.saturating_sub(1);
+            self.reg_file.tick(false, 0, 0, false);
             return (0, 0, false);
         }
 
@@ -83,6 +96,18 @@ impl Lx32System {
         let rs1_data = self.reg_file.read_rs1(rs1_addr);
         let rs2_data = self.reg_file.read_rs2(rs2_addr);
 
+        // Stub custom datapath values mirrored from RTL stubs.
+        let sensor_idx = (rs1_data & 0x3F) as u32;
+        let sensor_val = 1000u32 + sensor_idx;
+        let delta_val = 20u32;
+        let matrix_ptr = 0x5000_0000u32;
+        let active_keys = 0x0000_00FFu32;
+        let chord_match = if (active_keys & rs1_data) == rs1_data {
+            1u32
+        } else {
+            0u32
+        };
+
         // --- 4. Execution Stage ---
         let alu_a = if ctrl.src_a_pc { self.pc } else { rs1_data };
         let alu_b = if ctrl.alu_src { imm_ext } else { rs2_data };
@@ -95,7 +120,12 @@ impl Lx32System {
         let branch_taken = branch_unit_golden(rs1_data, rs2_data, ctrl.branch, ctrl.branch_op);
 
         // --- 6. State Update ---
-        let next_pc = if ctrl.jump {
+        let is_wait_instr = ctrl.custom_1 && funct3 == 0b000;
+        let wait_start = is_wait_instr && !self.wait_consumed;
+
+        let next_pc = if wait_start {
+            self.pc
+        } else if ctrl.jump {
             if ctrl.jalr {
                 rs1_data.wrapping_add(imm_ext) & 0xFFFF_FFFE
             } else {
@@ -110,7 +140,19 @@ impl Lx32System {
         // --- 7. Result MUX (Write-back source) ---
         // result_src: 00=ALU, 01=Mem, 10=PC+4, 11=IMM
         let write_data = match ctrl.result_src {
-            0b00 => alu_res,
+            0b00 => {
+                if ctrl.custom_0 {
+                    match funct3 {
+                        0b000 => sensor_val,
+                        0b001 => matrix_ptr,
+                        0b010 => delta_val,
+                        0b011 => chord_match,
+                        _ => 0,
+                    }
+                } else {
+                    alu_res
+                }
+            }
             0b01 => mem_rdata,
             0b10 => self.pc.wrapping_add(4),
             0b11 => imm_ext,
@@ -119,6 +161,13 @@ impl Lx32System {
 
         // --- 8. Register File Write-back ---
         self.reg_file.tick(false, rd_addr, write_data, ctrl.reg_write);
+
+        if wait_start {
+            self.wait_counter = rs1_data;
+            self.wait_consumed = true;
+        } else if !is_wait_instr {
+            self.wait_consumed = false;
+        }
 
         // --- 8.5 Commit next PC ---
         self.pc = next_pc;

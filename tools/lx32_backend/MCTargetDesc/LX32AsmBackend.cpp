@@ -26,6 +26,22 @@ public:
       : MCAsmBackend(llvm::endianness::little) {}
   ~LX32AsmBackend() override {}
 
+  MCFixupKindInfo getFixupKindInfo(MCFixupKind Kind) const override {
+    static const MCFixupKindInfo Infos[LX32Fixups::NumTargetFixupKinds -
+                                       FirstTargetFixupKind] = {
+        {"fixup_lx32_branch", 0, 32, 0},
+        {"fixup_lx32_jump", 0, 32, 0},
+    };
+
+    if (Kind < FirstTargetFixupKind)
+      return MCAsmBackend::getFixupKindInfo(Kind);
+
+    unsigned Idx = Kind - FirstTargetFixupKind;
+    if (Idx >= (LX32Fixups::NumTargetFixupKinds - FirstTargetFixupKind))
+      report_fatal_error("lx32: invalid fixup kind");
+    return Infos[Idx];
+  }
+
   void applyFixup(const MCFragment &Fragment, const MCFixup &Fixup,
                   const MCValue &Target, uint8_t *Data, uint64_t Value,
                   bool IsResolved) override {
@@ -34,15 +50,18 @@ public:
     CurVal =  (uint32_t)Data[0] | ((uint32_t)Data[1] << 8) |
              ((uint32_t)Data[2] << 16) | ((uint32_t)Data[3] << 24);
 
-    if (Fixup.getKind() == (MCFixupKind)1 /* branch */) {
-      uint32_t imm = Value;
+    if (Fixup.getKind() == (MCFixupKind)LX32Fixups::fixup_lx32_branch) {
+      // LX32 PC-relative control-flow immediates are based on the address of
+      // the current instruction, while MC fixup values here behave as if they
+      // were relative to the following instruction. Re-bias by +4 bytes.
+      uint32_t imm = Value + 4;
       uint32_t bit11 = (imm >> 11) & 1;
       uint32_t bit4_1 = (imm >> 1) & 0xF;
       uint32_t bit10_5 = (imm >> 5) & 0x3F;
       uint32_t bit12 = (imm >> 12) & 1;
       CurVal |= (bit11 << 7) | (bit4_1 << 8) | (bit10_5 << 25) | (bit12 << 31);
-    } else if (Fixup.getKind() == (MCFixupKind)2 /* jump */) {
-      uint32_t imm = Value;
+    } else if (Fixup.getKind() == (MCFixupKind)LX32Fixups::fixup_lx32_jump) {
+      uint32_t imm = Value + 4;
       uint32_t bit19_12 = (imm >> 12) & 0xFF;
       uint32_t bit11 = (imm >> 11) & 1;
       uint32_t bit10_1 = (imm >> 1) & 0x3FF;

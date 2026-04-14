@@ -22,12 +22,30 @@
 //   Section 10  — Constant-materialization patterns
 //   Section 11  — Pseudo-instructions
 //   Section 12  — Codegen-only pseudo overrides (stack adjustment, guards)
+//   Section 13  — Custom Instructions (PULSAR)
 //
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
 // Section 0 — Custom SDNodes and Pattern Fragments
 //===----------------------------------------------------------------------===//
+
+def SDT_LX32Sensor : SDTypeProfile<1, 1, [SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
+def LX32sensor : SDNode<"LX32ISD::LX32_SENSOR", SDT_LX32Sensor>;
+def LX32matrix : SDNode<"LX32ISD::LX32_MATRIX", SDT_LX32Sensor>;
+def LX32delta  : SDNode<"LX32ISD::LX32_DELTA", SDT_LX32Sensor>;
+def LX32chord  : SDNode<"LX32ISD::LX32_CHORD", SDT_LX32Sensor>;
+
+def SDT_LX32Wait : SDTypeProfile<0, 1, [SDTCisVT<0, i32>]>;
+
+def LX32wait : SDNode<"LX32ISD::LX32_WAIT", SDT_LX32Wait,
+                      [SDNPHasChain, SDNPSideEffect]>;
+
+
+def SDT_LX32Report : SDTypeProfile<0, 1, [SDTCisVT<0, i32>]>;
+
+def LX32report : SDNode<"LX32ISD::LX32_REPORT", SDT_LX32Report,
+                        [SDNPHasChain, SDNPSideEffect]>;
 
 // LX32ret — custom DAG node for the LX32 return sequence.
 //
@@ -311,6 +329,10 @@ def SB : Store_Pat<0b000, "sb",
 // Additional addressing patterns for pointer-dereference IR where the address
 // node is already a plain base register and no explicit add-immediate appears.
 def : Pat<(load GPR:$rs1), (LW GPR:$rs1, 0)>;
+def : Pat<(lx32_lh GPR:$rs1), (LH GPR:$rs1, 0)>;
+def : Pat<(lx32_lhu GPR:$rs1), (LHU GPR:$rs1, 0)>;
+def : Pat<(lx32_lb GPR:$rs1), (LB GPR:$rs1, 0)>;
+def : Pat<(lx32_lbu GPR:$rs1), (LBU GPR:$rs1, 0)>;
 def : Pat<(store GPR:$rs2, GPR:$rs1), (SW GPR:$rs2, GPR:$rs1, 0)>;
 
 //===----------------------------------------------------------------------===//
@@ -584,3 +606,50 @@ defm : LX32BccPat<SETGE, PseudoBGE>;
 defm : LX32BccPat<SETULT, PseudoBLTU>;
 defm : LX32BccPat<SETUGE, PseudoBGEU>;
 
+//===----------------------------------------------------------------------===//
+// Section 13 — Custom Instructions (PULSAR)
+//===----------------------------------------------------------------------===//
+
+let hasSideEffects = 1, mayLoad = 1, mayStore = 0 in {
+  def LX_SENSOR : LXInstI<0b000, OPC_CUSTOM_0,
+                          (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
+                          "lx.sensor", "$rd, $rs1">;
+
+  def LX_MATRIX : LXInstI<0b001, OPC_CUSTOM_0,
+                          (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
+                          "lx.matrix", "$rd, $rs1">;
+
+  def LX_DELTA  : LXInstI<0b010, OPC_CUSTOM_0,
+                          (outs GPR:$rd), (ins GPR:$rs1, simm12:$imm12),
+                          "lx.delta", "$rd, $rs1">;
+
+  def LX_CHORD  : LXInstRBase<0b011, OPC_CUSTOM_0,
+                              (outs GPR:$rd), (ins GPR:$rs1),
+                              "lx.chord", "$rd, $rs1"> {
+    let Inst{31-25} = 0; // Set funct7 to 0
+    let rs2 = 0;         // Set rs2 to 0 since it just takes rs1
+  }
+}
+
+let hasSideEffects = 1, mayLoad = 0, mayStore = 0 in {
+  def LX_WAIT   : LXInstI<0b000, OPC_CUSTOM_1,
+                          (outs), (ins GPR:$rd, simm12:$imm12),
+                          "lx.wait", "$rd"> {
+    let rs1 = 0;
+  }
+
+  def LX_REPORT : LXInstI<0b001, OPC_CUSTOM_1,
+                          (outs), (ins GPR:$rs1, simm12:$imm12),
+                          "lx.report", "$rs1"> {
+    // rd is unused, needs to be 0
+    let rd = 0;
+  }
+}
+
+// Patterns
+def : Pat<(LX32sensor GPR:$rs1), (LX_SENSOR GPR:$rs1, 0)>;
+def : Pat<(LX32matrix GPR:$rs1), (LX_MATRIX GPR:$rs1, 0)>;
+def : Pat<(LX32delta  GPR:$rs1), (LX_DELTA  GPR:$rs1, 0)>;
+def : Pat<(LX32chord  GPR:$rs1), (LX_CHORD  GPR:$rs1)>;
+def : Pat<(LX32wait   GPR:$rs1), (LX_WAIT   GPR:$rs1, 0)>;
+def : Pat<(LX32report GPR:$rs1), (LX_REPORT GPR:$rs1, 0)>;

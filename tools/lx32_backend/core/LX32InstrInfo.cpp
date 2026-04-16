@@ -245,10 +245,10 @@ bool LX32InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       report_fatal_error("lx32: conditional branch pseudo missing target MBB");
 
     auto MIB = BuildMI(MBB, MI, DL, get(RealOpc));
-    // LX32 RTL branch comparator consumes operands in inverted order versus
-    // canonical ISel pseudos (rs2, rs1). Swap here to preserve IR semantics.
-    MIB->addOperand(RegOps[RegOps.size() - 1]);
-    MIB->addOperand(RegOps[RegOps.size() - 2]);
+    // Standard RISC-V: rs1 is operand A (src_a), rs2 is operand B (src_b).
+    // BLT branches if rs1 < rs2. branch_unit.sv confirms this ordering.
+    MIB->addOperand(RegOps[0]);  // rs1
+    MIB->addOperand(RegOps[1]);  // rs2
     MIB.addMBB(TargetMBB);
     MBB.erase(MI);
     return true;

@@ -1,5 +1,5 @@
-; ModuleID = 'tools/lx32_backend/tests/baremetal/programs/12_run_matrix_scan.c'
-source_filename = "tools/lx32_backend/tests/baremetal/programs/12_run_matrix_scan.c"
+; ModuleID = '/Users/axel/Pulsar/tools/lx32_backend/tests/baremetal/programs/12_run_matrix_scan.c'
+source_filename = "/Users/axel/Pulsar/tools/lx32_backend/tests/baremetal/programs/12_run_matrix_scan.c"
 target datalayout = "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-i128:128-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-unknown-elf"
 

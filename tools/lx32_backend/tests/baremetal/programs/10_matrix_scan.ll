@@ -1,5 +1,5 @@
-; ModuleID = 'tools/lx32_backend/tests/baremetal/programs/10_matrix_scan.c'
-source_filename = "tools/lx32_backend/tests/baremetal/programs/10_matrix_scan.c"
+; ModuleID = '/Users/axel/Pulsar/tools/lx32_backend/tests/baremetal/programs/10_matrix_scan.c'
+source_filename = "/Users/axel/Pulsar/tools/lx32_backend/tests/baremetal/programs/10_matrix_scan.c"
 target datalayout = "e-m:e-p:32:32-p270:32:32-p271:32:32-p272:64:64-i128:128-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-unknown-elf"
 
@@ -9,52 +9,74 @@ define dso_local void @test_complex_scan() #0 {
   %2 = alloca i32, align 4
   %3 = alloca i32, align 4
   %4 = alloca i32, align 4
-  %5 = call ptr @llvm.lx32.matrix(i32 0)
-  store ptr %5, ptr %1, align 4
-  %6 = call i32 @llvm.lx32.chord(i32 5)
-  store i32 %6, ptr %2, align 4
-  store i32 0, ptr %3, align 4
-  br label %7
+  %5 = alloca i32, align 4
+  %6 = alloca ptr, align 4
+  %7 = alloca i32, align 4
+  %8 = alloca i32, align 4
+  %9 = alloca i32, align 4
+  store i32 0, ptr %5, align 4
+  %10 = load i32, ptr %5, align 4
+  %11 = call ptr @llvm.lx32.matrix(i32 %10)
+  store ptr %11, ptr %6, align 4
+  store i32 5, ptr %4, align 4
+  %12 = load i32, ptr %4, align 4
+  %13 = call i32 @llvm.lx32.chord(i32 %12)
+  store i32 %13, ptr %7, align 4
+  %14 = load i32, ptr %7, align 4
+  store i32 0, ptr %8, align 4
+  br label %15
 
-7:                                                ; preds = %24, %0
-  %8 = load i32, ptr %3, align 4
-  %9 = icmp slt i32 %8, 64
-  br i1 %9, label %10, label %27
+15:                                               ; preds = %34, %0
+  %16 = load i32, ptr %8, align 4
+  %17 = icmp slt i32 %16, 64
+  br i1 %17, label %18, label %37
 
-10:                                               ; preds = %7
-  %11 = load i32, ptr %3, align 4
-  %12 = call i32 @llvm.lx32.delta(i32 %11)
-  store i32 %12, ptr %4, align 4
-  %13 = load ptr, ptr %1, align 4
-  %14 = load i32, ptr %3, align 4
-  %15 = getelementptr inbounds i16, ptr %13, i32 %14
-  %16 = load i16, ptr %15, align 2
-  %17 = zext i16 %16 to i32
-  %18 = icmp sgt i32 %17, 2000
-  br i1 %18, label %22, label %19
+18:                                               ; preds = %15
+  %19 = load i32, ptr %8, align 4
+  store i32 %19, ptr %3, align 4
+  %20 = load i32, ptr %3, align 4
+  %21 = call i32 @llvm.lx32.delta(i32 %20)
+  store i32 %21, ptr %9, align 4
+  %22 = load ptr, ptr %6, align 4
+  %23 = load i32, ptr %8, align 4
+  %24 = getelementptr inbounds i16, ptr %22, i32 %23
+  %25 = load i16, ptr %24, align 2
+  %26 = zext i16 %25 to i32
+  %27 = icmp sgt i32 %26, 2000
+  br i1 %27, label %31, label %28
 
-19:                                               ; preds = %10
-  %20 = load i32, ptr %4, align 4
-  %21 = icmp sgt i32 %20, 100
-  br i1 %21, label %22, label %23
+28:                                               ; preds = %18
+  %29 = load i32, ptr %9, align 4
+  %30 = icmp sgt i32 %29, 100
+  br i1 %30, label %31, label %33
 
-22:                                               ; preds = %19, %10
-  call void @llvm.lx32.wait(i32 2)
-  br label %23
+31:                                               ; preds = %28, %18
+  store i32 2, ptr %2, align 4
+  %32 = load i32, ptr %2, align 4
+  call void @llvm.lx32.wait(i32 %32)
+  br label %33
 
-23:                                               ; preds = %22, %19
-  br label %24
+33:                                               ; preds = %31, %28
+  br label %34
 
-24:                                               ; preds = %23
-  %25 = load i32, ptr %3, align 4
-  %26 = add nsw i32 %25, 1
-  store i32 %26, ptr %3, align 4
-  br label %7, !llvm.loop !3
+34:                                               ; preds = %33
+  %35 = load i32, ptr %8, align 4
+  %36 = add nsw i32 %35, 1
+  store i32 %36, ptr %8, align 4
+  br label %15, !llvm.loop !3
 
-27:                                               ; preds = %7
-  %28 = load ptr, ptr %1, align 4
-  call void @llvm.lx32.report(ptr %28)
+37:                                               ; preds = %15
+  %38 = load ptr, ptr %6, align 4
+  store ptr %38, ptr %1, align 4
+  %39 = load ptr, ptr %1, align 4
+  call void @llvm.lx32.report(ptr %39)
   ret void
+}
+
+; Function Attrs: noinline nounwind optnone
+define dso_local i32 @main() #0 {
+  call void @test_complex_scan() #3
+  ret i32 0
 }
 
 ; Function Attrs: nounwind memory(none)
@@ -75,6 +97,7 @@ declare void @llvm.lx32.report(ptr) #2
 attributes #0 = { noinline nounwind optnone "frame-pointer"="all" "min-legal-vector-width"="0" "no-builtins" "no-trapping-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="generic" "target-features"="" "tune-cpu"="generic" }
 attributes #1 = { nounwind memory(none) }
 attributes #2 = { nounwind }
+attributes #3 = { nobuiltin "no-builtins" }
 
 !llvm.module.flags = !{!0, !1}
 !llvm.ident = !{!2}

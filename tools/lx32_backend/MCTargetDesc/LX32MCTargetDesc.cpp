@@ -100,7 +100,7 @@ public:
       return;
     }
     if (Op.isExpr()) {
-      OS << "<expr>";
+      Op.print(OS); // MCOperand is a friend of MCExpr; routes through its print
       return;
     }
     OS << "<unknown operand>";
